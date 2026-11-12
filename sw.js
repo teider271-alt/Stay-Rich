@@ -1,5 +1,5 @@
 // Stay Rich — funciona sem internet depois da primeira visita.
-const VERSAO='stayrich-edcde48bd8';
+const VERSAO='stayrich-0873831ab6';
 const ARQ=['./','index.html','manifest.webmanifest','icon-180.png','icon-192.png','icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSAO).then(c=>c.addAll(ARQ)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSAO).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

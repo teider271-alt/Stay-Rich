@@ -379,12 +379,14 @@ function normalize(s){s.meses=s.meses||{};for(const m of Object.values(s.meses))
     }
   s.fixas=s.fixas||[];s.dividas=s.dividas||[];s.receber=s.receber||[];s.parcelamentos=s.parcelamentos||[];if(!(s.meta>0))s.meta=4000;s.porquinho=s.porquinho||[];s.vivo=s.vivo||[];s.dividas.forEach(d=>{if(!d.inicio)d.inicio=todayKey();});s.version=3;return s;}
 function load(){
-  if(NATIVE){const d=window.__DADOS__;if(d&&d.meses){S=normalize(d);return true;}return false;}
+  if(NATIVE){const d=window.__DADOS__;if(d&&d.meses){S=normalize(d);syncSaldos();save._sig=sigDados();return true;}return false;}
   if(window.__CONTA__){const d=window.__CONTA__.dados;if(d&&d.meses){S=normalize(d);return true;}}
   return false;
 }
+const sigDados=()=>JSON.stringify(S,(k,v)=>k==='_sync'?undefined:v);
 function save(){
   if(S&&S.meses)syncSaldos();
+  if(NATIVE){const g=sigDados();if(g!==save._sig){save._sig=g;S._sync=S._sync||{};S._sync.rev=(S._sync.rev||0)+1;}}
   const j=JSON.stringify(S);
   if(NATIVE) native('save',{data:j}); else if(window.__CONTA__)window.__CONTA__.salvar(j);
   const el=document.getElementById('saved');if(el)el.innerHTML='<i></i>Salvo às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -762,9 +764,15 @@ VIEWS.ajustes=()=>{
   <div class="grid g2">
    <div class="card"><div class="ct">Sua conta</div><p class="cs" style="font-size:12.5px;line-height:1.6">Você está na conta <b>${esc(window.__CONTA__?window.__CONTA__.nome:'')}</b>. Ela existe só neste aparelho.</p>
     <div class="row"><button class="btn pri" data-conta="sair">Sair</button><button class="btn" data-conta="senha">Trocar senha</button><button class="btn" data-conta="apagar" style="color:var(--red)">Apagar conta</button></div></div>
-   <div class="card"><div class="ct">Passar dados entre o Mac e o celular</div><p class="cs" style="font-size:12.5px;line-height:1.7"><b>Do Mac para cá:</b> no Stay Rich do Mac, Ajustes → “Salvar backup…” e guarde no iCloud Drive. Aqui, toque em “Escolher arquivo…” (em Importar backup) e escolha esse arquivo.<br><b>Daqui para o Mac:</b> toque em “Salvar backup…”, guarde no iCloud Drive e, no Mac, Ajustes → Importar backup.<br>Importar <b>substitui</b> os dados de quem recebe: passe sempre do aparelho que tem as informações mais novas.</p></div>
+   <div class="card"><div class="ct">Sincronizar com o Mac</div><p class="cs" style="font-size:12.5px;line-height:1.7"><b>Enviar para o Mac:</b> toque no botão, escolha “Salvar em Arquivos” e salve na pasta <b>Stay Rich</b> do iCloud Drive (se perguntar, toque em <b>Substituir</b>). Ao abrir o Stay Rich no Mac, a atualização entra sozinha.<br><b>Receber do Mac:</b> toque no botão e escolha o arquivo <b>stayrich-do-mac</b> na mesma pasta. Ele substitui os dados daqui.</p>
+    <div class="row"><button class="btn pri" data-act="enviarMac">Enviar para o Mac</button><button class="btn" data-act="importar">Receber do Mac</button></div></div>
    <div class="card">${ICO.boia()}<div class="ct">Backup automático</div><p class="cs" style="font-size:12.5px;line-height:1.6">${NATIVE?'Todo dia em que você mexe no app, eu guardo sozinho uma cópia dos seus dados (ficam as últimas 60).':'Neste aparelho eu guardo sozinho a cópia do dia anterior. Para mais segurança, salve um backup de vez em quando.'} Você tem <b>${n}</b> lançamentos em <b>${mkeys().length}</b> meses.</p>
     ${NATIVE?'<button class="btn" data-act="pasta">Abrir pasta dos dados</button> <button class="btn" data-act="restaurarAuto">Restaurar um backup automático…</button>':''}</div>
+   ${NATIVE?`<div class="card span2"><div class="ct">Sincronizar com o celular</div>${(window.__SYNC__&&window.__SYNC__.on)
+     ?`<p class="cs" style="font-size:12.5px;line-height:1.7"><span class="chip g">Ligada</span> Uso a pasta <b>Stay Rich</b> do seu iCloud Drive. Quando chega um arquivo novo do celular, eu importo sozinho ao abrir o app. Se você tiver mexido aqui no Mac depois da última vez que o celular pegou os dados, eu pergunto antes. Uma cópia sempre atualizada dos dados do Mac fica nessa pasta para o celular buscar.${window.__SYNC__.ultima?`<br>Última atualização vinda do celular: <b>${esc(window.__SYNC__.ultima)}</b>.`:''}</p>
+       <div class="row"><button class="btn pri" data-act="syncAgora">Verificar agora</button><button class="btn" data-act="syncPasta">Abrir a pasta</button><button class="btn" data-act="syncOff">Desligar</button></div>`
+     :`<p class="cs" style="font-size:12.5px;line-height:1.7">Ligue para o Mac buscar sozinho o que você lançar no celular. Eu crio uma pasta <b>Stay Rich</b> no seu iCloud Drive: o celular salva ali (botão “Enviar para o Mac”) e, ao abrir o app aqui, a atualização entra sozinha. O macOS pode pedir permissão para o Stay Rich acessar o iCloud Drive: clique em Permitir.</p>
+       <button class="btn pri" data-act="syncOn">Ligar sincronização</button>`}</div>`:''}
    <div class="card">${ICO.disquete()}<div class="ct">Salvar uma cópia</div><p class="cs" style="font-size:12.5px;line-height:1.6">Salva um arquivo .json com tudo. No iPhone, escolha “Salvar em Arquivos” e guarde no iCloud Drive.</p><button class="btn pri" data-act="backup">Salvar backup…</button></div>
    <div class="card">${ICO.planilha()}<div class="ct">Exportar para Excel</div><p class="cs" style="font-size:12.5px;line-height:1.6">Gera um .csv com todos os lançamentos (mês, tipo, descrição, categoria, data e valor) que abre direto no Excel.</p><button class="btn" data-act="csv">Exportar para Excel</button></div>
    <div class="card">${ICO.entrada()}<div class="ct">Importar backup</div><p class="cs" style="font-size:12.5px;line-height:1.6">Carrega um backup .json salvo pelo app. <b>Substitui</b> os dados atuais.</p><button class="btn" data-act="importar">Escolher arquivo…</button>
@@ -887,6 +895,7 @@ const AJUDA={
   <h4>Backup automático</h4><ul><li>Todo dia em que você usa o app, ele guarda <b>sozinho</b> uma cópia dos seus dados. Ficam as últimas 60.</li><li>Se algo der errado, clique em <b>Restaurar um backup automático…</b> e escolha o dia que quer de volta.</li><li><b>Abrir pasta dos dados</b> mostra onde o arquivo fica no Mac.</li></ul>
   <h4>Salvar uma cópia</h4><ul><li><b>Salvar backup</b> cria um arquivo com tudo; uma janela pergunta onde guardar (o normal é a pasta Downloads). É bom guardar no iCloud Drive ou num pendrive de vez em quando.</li></ul>
   <h4>Exportar para Excel</h4><ul><li>Cria uma planilha com todos os lançamentos, que abre no Excel ou no Numbers.</li></ul>
+  <h4>Sincronizar com o celular</h4><ul><li>Com a sincronização <b>ligada</b>, o que você enviar do celular (botão “Enviar para o Mac”, salvando na pasta <b>Stay Rich</b> do iCloud Drive) entra sozinho quando você abre o app no Mac.</li><li>Se você mexeu no Mac nesse meio tempo, o app <b>pergunta antes</b> de trocar os dados.</li></ul>
   <h4>Importar backup</h4><ul><li>Traz de volta um arquivo de backup. <b>Atenção:</b> ele <b>substitui</b> tudo o que está no app agora.</li><li>O botão de <b>apagar tudo / recomeçar</b> pede confirmação antes. Só use se tiver certeza.</li></ul>
   <p class="ok">Seus dados ficam <b>só neste Mac</b>. Nada vai para a internet.</p>`]
 };
@@ -1091,7 +1100,9 @@ document.addEventListener('click',e=>{
     toast(g?`Guardado ${brl(v)} — saiu do disponível de ${mname(k)}`:`Retirado ${brl(v)} — voltou para o disponível`);});}
   else if(a==='meta')formModal('Meta de economia por mês',[['v','Quanto você quer guardar por mês (R$)',vstr(S.meta)]],vals=>{const v=parseV(vals.v);if(isNaN(v)||v<=0)return false;S.meta=v;});
   else if(a==='novaDivida')formModal('Nova dívida',[['nome','Nome (ex.: família, Empréstimo)',''],['v','Valor total','']],vals=>{const v=parseV(vals.v);if(!vals.nome.trim()||isNaN(v))return false;S.dividas.push({id:uid(),nome:vals.nome.trim(),itens:[{id:uid(),v,d:'Valor inicial'}],pags:[]});});
-  else if(a==='backup')exportar('financas-backup-'+todayISO()+'.json',JSON.stringify(S,null,1));
+  else if(a==='syncOn')native('syncOn');else if(a==='syncOff')native('syncOff');else if(a==='syncPasta')native('syncPasta');else if(a==='syncAgora')native('syncCheck',{manual:true});
+  else if(a==='enviarMac'){exportar('stayrich-do-celular.json',JSON.stringify(S));}
+  else if(a==='backup')exportar('stayrich-backup-'+(NATIVE?'mac':'celular')+'-'+todayISO()+'-'+new Date().toTimeString().slice(0,5).replace(':','h')+'.json',JSON.stringify(S,null,1));
   else if(a==='csv'){const L=[['Mês','Tipo','Descrição','Categoria','Data','Valor']];for(const k of mkeys()){const m=S.meses[k];m.entradas.forEach(x=>L.push([mlabel(k),'Entrada',x.d,x.cat,fmtD(x.data),vstr(x.v)]));m.saidas.forEach(x=>L.push([mlabel(k),'Saída',x.d,x.cat,fmtD(x.data),vstr(x.v)]));}
     exportar('financas-'+todayISO()+'.csv','﻿'+L.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n'));}
   else if(a==='importar')confirmBox('Importar um backup substitui todos os dados atuais. Continuar?','Escolher arquivo',pickFile,false);
@@ -1257,6 +1268,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-conta]');i
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 authInicio();
 
+if(window.__AVISO__)setTimeout(()=>toast(window.__AVISO__),400);
+if(NATIVE&&window.__SYNC__&&window.__SYNC__.on){const chk=()=>{if(!document.querySelector('.modal-bg'))native('syncCheck');};setTimeout(chk,900);window.addEventListener('focus',()=>setTimeout(chk,300));setInterval(chk,60000);}
 </script>
 </body>
 </html>
